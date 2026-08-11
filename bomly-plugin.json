@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "bomly.plugin.package.v1",
+  "id": "bomly.template.matcher",
+  "name": "Template Matcher",
+  "version": "0.1.0",
+  "kind": "matcher",
+  "runtime": "hashicorp-grpc",
+  "pluginApiVersion": "bomly.plugin.v1",
+  "entrypoint": {
+    "linux/amd64": "bomly-plugin-template",
+    "linux/arm64": "bomly-plugin-template",
+    "darwin/amd64": "bomly-plugin-template",
+    "darwin/arm64": "bomly-plugin-template",
+    "windows/amd64": "bomly-plugin-template.exe"
+  },
+  "description": "Template repository example: a matcher that annotates every package with a configurable greeting.",
+  "homepage": "https://github.com/bomly-dev/bomly-plugin-template",
+  "license": "Apache-2.0"
+}
