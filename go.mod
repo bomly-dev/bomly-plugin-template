@@ -3,7 +3,7 @@ module github.com/bomly-dev/bomly-plugin-template
 go 1.26.3
 
 require (
-	github.com/bomly-dev/bomly-sdk v0.1.1-0.20260811011917-d55515776015
+	github.com/bomly-dev/bomly-sdk v0.2.0
 	go.uber.org/zap v1.28.0
 )
 
