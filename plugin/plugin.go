@@ -16,7 +16,8 @@ import (
 	"context"
 	"fmt"
 
-	sdk "github.com/bomly-dev/bomly-sdk"
+	"github.com/bomly-dev/bomly-sdk/model"
+	sdkplugin "github.com/bomly-dev/bomly-sdk/plugin"
 )
 
 // Name is the plugin's identity. It MUST equal the "id" field in
@@ -51,13 +52,13 @@ type Config struct {
 // matcher depends on something that can be missing (a token, a reachable
 // endpoint) and Applicable when it should only run for certain ecosystems.
 type Matcher struct {
-	sdk.BaseMatcher
+	sdkplugin.BaseMatcher
 	config Config
 }
 
 // descriptor is the matcher's static registration data.
-func descriptor() sdk.MatcherDescriptor {
-	return sdk.MatcherDescriptor{
+func descriptor() sdkplugin.MatcherDescriptor {
+	return sdkplugin.MatcherDescriptor{
 		Name:        Name,
 		DisplayName: "Template Matcher",
 		// CapabilityPackageUpdates tells Bomly this matcher can return
@@ -65,23 +66,23 @@ func descriptor() sdk.MatcherDescriptor {
 		// echoing the full registry. Hosts that do not understand deltas
 		// simply never set AcceptPackageUpdates, and the matcher falls back
 		// to the full-registry baseline below.
-		Capabilities: []string{sdk.CapabilityPackageUpdates},
+		Capabilities: []string{sdkplugin.CapabilityPackageUpdates},
 		// Advertise the Config shape so `bomly plugin info` and the config
 		// schema tooling can document and validate the block.
-		ConfigSchema: sdk.MustConfigSchemaFor(Config{}),
+		ConfigSchema: sdkplugin.MustConfigSchemaFor(Config{}),
 	}
 }
 
 // Descriptor identifies the matcher to Bomly.
-func (m *Matcher) Descriptor() sdk.MatcherDescriptor { return descriptor() }
+func (m *Matcher) Descriptor() sdkplugin.MatcherDescriptor { return descriptor() }
 
 // Match is the matcher's action. It runs once per scan with the full package
 // registry and returns enrichment for those packages.
-func (m *Matcher) Match(_ context.Context, req sdk.MatchRequest) (sdk.MatchResult, error) {
-	stats := sdk.MatcherStats{Name: Name, DisplayName: "Template Matcher"}
+func (m *Matcher) Match(_ context.Context, req sdkplugin.MatchRequest) (sdkplugin.MatchResult, error) {
+	stats := sdkplugin.MatcherStats{Name: Name, DisplayName: "Template Matcher"}
 	if req.Registry == nil {
 		// Nothing to enrich. Returning an empty result is fine.
-		return sdk.MatchResult{MatcherStats: stats}, nil
+		return sdkplugin.MatchResult{MatcherStats: stats}, nil
 	}
 
 	if req.AcceptPackageUpdates {
@@ -89,14 +90,14 @@ func (m *Matcher) Match(_ context.Context, req sdk.MatchRequest) (sdk.MatchResul
 		// the packages we touched. Each update is a sparse Package carrying
 		// the PURL (the merge key) plus the new data; the host merges it
 		// into its registry.
-		updates := make([]*sdk.Package, 0, req.Registry.Len())
+		updates := make([]*model.Package, 0, req.Registry.Len())
 		for _, pkg := range req.Registry.All() {
-			update := &sdk.Package{Coordinates: sdk.Coordinates{PURL: pkg.PURL}}
+			update := &model.Package{Coordinates: model.Coordinates{PURL: pkg.PURL}}
 			update.Metadata = map[string]any{MetadataKey: m.config.Greeting}
 			updates = append(updates, update)
 		}
 		stats.MatchedPackages = len(updates)
-		return sdk.MatchResult{PackageUpdates: updates, MatcherStats: stats}, nil
+		return sdkplugin.MatchResult{PackageUpdates: updates, MatcherStats: stats}, nil
 	}
 
 	// Baseline path (protocol v1): annotate the registry in place and echo
@@ -108,19 +109,19 @@ func (m *Matcher) Match(_ context.Context, req sdk.MatchRequest) (sdk.MatchResul
 		pkg.Metadata[MetadataKey] = m.config.Greeting
 		stats.MatchedPackages++
 	}
-	return sdk.MatchResult{Registry: req.Registry, MatcherStats: stats}, nil
+	return sdkplugin.MatchResult{Registry: req.Registry, MatcherStats: stats}, nil
 }
 
 // Module packages the matcher for both execution modes: Bomly can embed it
 // in-process or serve it as a managed plugin subprocess (see
 // cmd/bomly-plugin-template). The constructor receives a HostContext — the
 // only channel to host services (logger, HTTP client, runtime info, config).
-func Module() sdk.Module {
-	return sdk.Module{
-		Kind: sdk.PluginKindMatcher,
-		Matcher: &sdk.MatcherModule{
+func Module() sdkplugin.Module {
+	return sdkplugin.Module{
+		Kind: sdkplugin.PluginKindMatcher,
+		Matcher: &sdkplugin.MatcherModule{
 			Descriptor: descriptor(),
-			New: func(_ context.Context, host sdk.HostContext) (sdk.Matcher, error) {
+			New: func(_ context.Context, host sdkplugin.HostContext) (sdkplugin.Matcher, error) {
 				matcher := &Matcher{}
 				// DecodeConfig fills Config from the user's
 				// plugins.matchers.<id> block; `default` tags apply to

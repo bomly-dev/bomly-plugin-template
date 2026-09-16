@@ -7,9 +7,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	sdk "github.com/bomly-dev/bomly-sdk"
 	"github.com/bomly-dev/bomly-sdk/conformance"
 	"go.uber.org/zap"
+
+	"github.com/bomly-dev/bomly-sdk/httpkit"
+	"github.com/bomly-dev/bomly-sdk/model"
+	sdkplugin "github.com/bomly-dev/bomly-sdk/plugin"
 )
 
 // testHost is a minimal HostContext for unit tests.
@@ -18,9 +21,9 @@ type testHost struct {
 }
 
 func (h testHost) Logger() *zap.Logger                 { return zap.NewNop() }
-func (h testHost) HTTPClient() *sdk.HTTPClientProvider { return nil }
-func (h testHost) Runtime() sdk.RuntimeInfo {
-	return sdk.RuntimeInfo{Execution: sdk.ExecutionEmbedded}
+func (h testHost) HTTPClient() *httpkit.ClientProvider { return nil }
+func (h testHost) Runtime() sdkplugin.RuntimeInfo {
+	return sdkplugin.RuntimeInfo{Execution: sdkplugin.ExecutionEmbedded}
 }
 
 func (h testHost) DecodeConfig(v any) error {
@@ -31,7 +34,7 @@ func (h testHost) DecodeConfig(v any) error {
 	return json.Unmarshal(payload, v)
 }
 
-func newMatcher(t *testing.T, config json.RawMessage) sdk.Matcher {
+func newMatcher(t *testing.T, config json.RawMessage) sdkplugin.Matcher {
 	t.Helper()
 	module := Module()
 	matcher, err := module.Matcher.New(context.Background(), testHost{config: config})
@@ -41,13 +44,13 @@ func newMatcher(t *testing.T, config json.RawMessage) sdk.Matcher {
 	return matcher
 }
 
-func loadFixtureRegistry(t *testing.T) *sdk.PackageRegistry {
+func loadFixtureRegistry(t *testing.T) *model.PackageRegistry {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join("..", "testdata", "registry.json"))
 	if err != nil {
 		t.Fatalf("read fixture registry: %v", err)
 	}
-	registry := sdk.NewPackageRegistry()
+	registry := model.NewPackageRegistry()
 	if err := json.Unmarshal(data, registry); err != nil {
 		t.Fatalf("decode fixture registry: %v", err)
 	}
@@ -61,7 +64,7 @@ func TestMatchAnnotatesFullRegistry(t *testing.T) {
 	matcher := newMatcher(t, nil)
 	registry := loadFixtureRegistry(t)
 
-	result, err := matcher.Match(context.Background(), sdk.MatchRequest{Registry: registry})
+	result, err := matcher.Match(context.Background(), sdkplugin.MatchRequest{Registry: registry})
 	if err != nil {
 		t.Fatalf("Match: %v", err)
 	}
@@ -85,7 +88,7 @@ func TestMatchReturnsPackageUpdatesWithConfiguredGreeting(t *testing.T) {
 	matcher := newMatcher(t, json.RawMessage(`{"greeting":"custom greeting"}`))
 	registry := loadFixtureRegistry(t)
 
-	result, err := matcher.Match(context.Background(), sdk.MatchRequest{
+	result, err := matcher.Match(context.Background(), sdkplugin.MatchRequest{
 		Registry:             registry,
 		AcceptPackageUpdates: true,
 	})
@@ -99,7 +102,7 @@ func TestMatchReturnsPackageUpdatesWithConfiguredGreeting(t *testing.T) {
 		t.Fatalf("expected %d package updates, got %d", registry.Len(), len(result.PackageUpdates))
 	}
 
-	merged := sdk.ApplyPackageUpdates(registry, result.PackageUpdates)
+	merged := model.ApplyPackageUpdates(registry, result.PackageUpdates)
 	for _, pkg := range merged.All() {
 		if pkg.Metadata[MetadataKey] != "custom greeting" {
 			t.Fatalf("package %s missing configured greeting after merge, got %v", pkg.PURL, pkg.Metadata[MetadataKey])
@@ -109,7 +112,7 @@ func TestMatchReturnsPackageUpdatesWithConfiguredGreeting(t *testing.T) {
 
 func TestMatchEmptyRequest(t *testing.T) {
 	matcher := newMatcher(t, nil)
-	result, err := matcher.Match(context.Background(), sdk.MatchRequest{})
+	result, err := matcher.Match(context.Background(), sdkplugin.MatchRequest{})
 	if err != nil {
 		t.Fatalf("Match with no registry: %v", err)
 	}
