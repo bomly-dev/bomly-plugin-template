@@ -108,7 +108,7 @@ Bomly shows the `access` block of `bomly-plugin.json` to a user when they instal
 - `environment` — variable names, `PREFIX*`, or `*`. Names only; Bomly never shows values.
 - `subprocesses` — command names, or `*`.
 
-What Bomly itself hands the plugin is not declared: the configuration file and `BOMLY_*` settings the SDK runtime reads on the plugin's behalf are part of the host contract. `TestConformance` validates the block and fails on a scope the SDK does not define.
+What Bomly itself hands the plugin is not declared: the configuration file and `BOMLY_*` settings the SDK runtime reads on the plugin's behalf are part of the host contract. `TestConformance` fails on a malformed entry and on a filesystem scope the SDK does not define; a well-formed host, variable, or command name it cannot verify passes.
 
 ## Security expectations
 
