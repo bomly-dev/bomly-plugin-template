@@ -15,5 +15,6 @@
   },
   "description": "Template repository example: a matcher that annotates every package with a configurable greeting.",
   "homepage": "https://github.com/bomly-dev/bomly-plugin-template",
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "access": {}
 }
