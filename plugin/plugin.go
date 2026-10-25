@@ -70,6 +70,15 @@ func descriptor() sdkplugin.MatcherDescriptor {
 		// Advertise the Config shape so `bomly plugin info` and the config
 		// schema tooling can document and validate the block.
 		ConfigSchema: sdkplugin.MustConfigSchemaFor(Config{}),
+		// Requires declares the pipeline data the matcher cannot work
+		// without, so Bomly can explain an impossible run before starting
+		// it ("this matcher needs a source tree; the target is an SBOM").
+		// A requirement names data, never another plugin, and Ready and
+		// Applicable still decide at run time. The template works on any
+		// registry, so it declares nothing. A matcher that reads source
+		// files would declare:
+		//
+		//	Requires: sdkplugin.Requirements{sdkplugin.RequirementSourceTree},
 	}
 }
 
@@ -100,8 +109,10 @@ func (m *Matcher) Match(_ context.Context, req sdkplugin.MatchRequest) (sdkplugi
 		return sdkplugin.MatchResult{PackageUpdates: updates, MatcherStats: stats}, nil
 	}
 
-	// Baseline path (protocol v1): annotate the registry in place and echo
-	// the full registry back.
+	// Baseline path (protocol v1): annotate the registry and echo it back.
+	// The registry in the request is this call's own copy -- the host keeps
+	// what you return only if Match succeeds -- so changing it in place is
+	// safe. Changes to req.Graph or req.Target are never kept.
 	for _, pkg := range req.Registry.All() {
 		if pkg.Metadata == nil {
 			pkg.Metadata = make(map[string]any, 1)
@@ -131,6 +142,16 @@ func Module() sdkplugin.Module {
 				if err := host.DecodeConfig(&matcher.config); err != nil {
 					return nil, fmt.Errorf("decode %s config: %w", Name, err)
 				}
+				// Anything the constructor acquires -- a temp dir, an open
+				// file, a background goroutine -- is released through
+				// OnCleanup, registered right after acquiring it. Cleanups
+				// run when the scan ends, embedded or managed, even if the
+				// constructor fails afterwards. The template acquires
+				// nothing; a real plugin would write:
+				//
+				//	dir, err := os.MkdirTemp("", "my-plugin-")
+				//	if err != nil { return nil, err }
+				//	host.OnCleanup(func() error { return os.RemoveAll(dir) })
 				host.Logger().Debug("template matcher configured")
 				return matcher, nil
 			},

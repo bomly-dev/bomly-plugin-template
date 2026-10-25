@@ -16,6 +16,8 @@ It ships a complete, working **matcher** plugin — the simplest role to run end
 - [ ] **Plugin id** — change `Name` in `plugin/plugin.go` (e.g. `com.example.my-matcher`) **and** the `id` field in `bomly-plugin.json`. They must be identical: Bomly refuses to load a plugin whose manifest id and runtime descriptor name disagree.
 - [ ] **Binary name** — rename `cmd/bomly-plugin-template/` to `cmd/<your-binary>/`, update the `PLUGIN_NAME` env in `.github/workflows/release.yml`, and update every `entrypoint` value in `bomly-plugin.json`.
 - [ ] **Manifest metadata** — update `name`, `version`, `description`, `homepage`, and `license` in `bomly-plugin.json`.
+- [ ] **Declared access** — fill in the `access` block in `bomly-plugin.json` with everything your plugin reads, writes, contacts, and starts (see [Declaring access](#declaring-access)). The template's `{}` is a claim of *no* access; leave it that way only if it is true.
+- [ ] **Requirements** — if your component cannot work without a source tree, a dependency graph, or vulnerability records, declare it in the descriptor's `Requires` (see the comment in `plugin/plugin.go`).
 - [ ] **Role** — this template is a matcher. For a detector, auditor, or analyzer, change the module kind and descriptor accordingly; the how-to guides below walk through each role.
 
 ## Layout
@@ -87,10 +89,31 @@ bomly plugin install github.com/<owner>/<repo>@v<version>
 - The plugin wire protocol (`bomly.plugin.v1`) is additive within v1: hosts and plugins negotiate optional features via descriptor `Capabilities` (e.g. `sdk.CapabilityPackageUpdates`), so older hosts and newer plugins keep working on the baseline behavior.
 - Version your plugin with semver; keep `bomly-plugin.json` `version` and the release tag in lockstep.
 
+## Declaring access
+
+Bomly shows the `access` block of `bomly-plugin.json` to a user when they install the plugin and in `bomly plugin info`. It is your own claim, not a sandbox: nothing restricts the plugin to it, so the only value of the block is that it is true. Every list is optional, but an omitted list means the plugin needs none of that access, so list everything. A manifest with no `access` block at all is shown as *unknown*.
+
+```json
+"access": {
+  "filesystemRead": ["project", "cache"],
+  "filesystemWrite": ["temp"],
+  "network": ["api.osv.dev", "*.github.com"],
+  "environment": ["GITHUB_TOKEN"],
+  "subprocesses": ["go"]
+}
+```
+
+- `filesystemRead` / `filesystemWrite` — areas, not paths: `project` (the scan target), `temp`, `cache` (the user cache directory), `home`, or `any`.
+- `network` — host names, `*.host` for a domain and its subdomains, or `*` for destinations you cannot name in advance, such as a user-configured registry.
+- `environment` — variable names, `PREFIX*`, or `*`. Names only; Bomly never shows values.
+- `subprocesses` — command names, or `*`.
+
+What Bomly itself hands the plugin is not declared: the configuration file and `BOMLY_*` settings the SDK runtime reads on the plugin's behalf are part of the host contract. `TestConformance` fails on a malformed entry and on a filesystem scope the SDK does not define; a well-formed host, variable, or command name it cannot verify passes.
+
 ## Security expectations
 
 - **No secrets in logs, ever.** Use the `HostContext.Logger()`; never log tokens, credentials, or PII.
-- **Explicit network.** Make outbound calls through `HostContext.HTTPClient()` (backed by `sdk.NewHTTPClientProviderFromEnv` in managed execution) so the host's proxy, TLS, and timeout policy applies. Document every endpoint your plugin talks to.
+- **Explicit network.** Make outbound calls through `HostContext.HTTPClient()` (backed by `sdk.NewHTTPClientProviderFromEnv` in managed execution) so the host's proxy, TLS, and timeout policy applies. Declare every endpoint your plugin talks to in the manifest's `access.network`.
 - Degrade gracefully: report unavailability through `Ready` instead of failing scans.
 
 ## Further reading

@@ -26,6 +26,10 @@ func (h testHost) Runtime() sdkplugin.RuntimeInfo {
 	return sdkplugin.RuntimeInfo{Execution: sdkplugin.ExecutionEmbedded}
 }
 
+// OnCleanup runs nothing: a unit test's host never ends the component's
+// lifetime. conformance.Test uses a real scope and runs cleanups.
+func (h testHost) OnCleanup(func() error) {}
+
 func (h testHost) DecodeConfig(v any) error {
 	payload := h.config
 	if len(payload) == 0 {
